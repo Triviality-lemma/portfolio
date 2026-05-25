@@ -112,7 +112,8 @@
         {name:"description",label:"Description",type:"textarea"},
         {name:"category",label:"Category",type:"select",options:["certificate","photo","document","slide","poster","other"]},
         {name:"date",label:"Date",type:"text"},
-        {name:"file_url",label:"File URL",type:"url",hint:"Upload a file above, then fill this field with the generated URL."},
+        {name:"files",label:"Files JSON",type:"json",hint:"JSON array format: [{"label":"Certificate","url":"https://..."}]"},
+        {name:"file_url",label:"Legacy Single File URL",type:"url",hint:"Fallback URL used only when Files JSON is empty."},
         {name:"sort_order",label:"Order",type:"number"}
       ],titleField:"title",subtitleField:"description"},
       {table:"timeline",label:"Timeline",fields:[
@@ -214,7 +215,7 @@
         const jsonText=JSON.stringify(uploaded,null,2);
         const linkList=uploaded.map(x=>`<li><a href="${escAttr(x.url)}" target="_blank">${esc(x.label)}</a></li>`).join("");
         out.innerHTML=`<strong>Uploaded successfully.</strong>
-          <p class="status">Copy this JSON into the Projects links field, or click Fill selected field after focusing the links textarea.</p>
+          <p class="status">Copy this JSON into the Projects links field or Archive files field, or click Fill selected field after focusing the JSON textarea.</p>
           <ul style="margin:10px 0 0 18px">${linkList}</ul>
           <textarea style="width:100%;min-height:170px;margin-top:12px;border:1px solid var(--border);border-radius:12px;padding:10px">${esc(jsonText)}</textarea>
           <div class="button-row">
@@ -242,7 +243,7 @@
       const c=configFor(table);const status=document.getElementById(`${table}-status`);const id=document.getElementById(`${table}-id`).value;let data={};
       c.fields.forEach(f=>{let val=document.getElementById(`${table}-${f.name}`).value;if(f.type==="number")val=val===""?0:Number(val);if(f.type==="json")val=parseJsonField(val,f.label);data[f.name]=val});
       for(const f of c.fields){if(f.required&&!String(data[f.name]||"").trim()){status.textContent=`${f.label} is required.`;status.className="status error";return}}
-      if(data.links instanceof Error){status.textContent=data.links.message;status.className="status error";return}
+      for(const f of c.fields){if(data[f.name] instanceof Error){status.textContent=data[f.name].message;status.className="status error";return}}
       if(c.single)data.id=1;
       status.textContent="Saving...";status.className="status";
       try{let url=table,method="POST";if(c.single||id){url=`${table}?id=eq.${c.single?1:id}`;method="PATCH"}let r=await request(url,method,data);if(c.single&&!r.length){await request(table,"POST",data)}status.textContent="Saved successfully.";status.className="status success";clearForm(table);loadItems(table);}
@@ -264,11 +265,11 @@
       fillFocusedLinks(JSON.stringify([{label:"File",url}]));
     }
     function fillFocusedLinks(jsonText){
-      if(!lastUrlInput){alert("Click a URL field, the Archive File URL field, or the Projects Links JSON field first, then press this button again.");return}
+      if(!lastUrlInput){alert("Click a URL field, the Projects Links JSON field, or the Archive Files JSON field first, then press this button again.");return}
       let newLinks=[];
       try{newLinks=JSON.parse(jsonText)}catch{newLinks=[]}
       if(!Array.isArray(newLinks))newLinks=[];
-      if(lastUrlInput.tagName==="TEXTAREA"&&lastUrlInput.id==="projects-links"){
+      if(lastUrlInput.tagName==="TEXTAREA"&&(lastUrlInput.id==="projects-links"||lastUrlInput.id==="archive-files")){
         const current=lastUrlInput.value.trim();let arr=[];
         try{arr=current?JSON.parse(current):[]}catch{arr=[]}
         if(!Array.isArray(arr))arr=[];
