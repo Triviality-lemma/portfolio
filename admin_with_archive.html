@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio Admin</title>
+  <style>
+    :root{--bg:#f5f7fb;--card:#fff;--text:#1f2937;--muted:#6b7280;--border:#e5e7eb;--accent:#1d4ed8;--accent-dark:#1e3a8a;--danger:#dc2626;--success:#15803d;--radius:16px;--shadow:0 10px 30px rgba(15,23,42,.07)}*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;padding:28px}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}.container{max-width:1180px;margin:0 auto}.header{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:24px}.header h1{font-size:2rem;letter-spacing:-.04em;color:#111827}.header p{color:var(--muted);margin-top:4px}.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;margin-bottom:20px}.card h2{font-size:1.25rem;margin-bottom:14px;color:#111827}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.full{grid-column:1/-1}label{display:block;font-size:.85rem;font-weight:700;color:#374151;margin-bottom:6px}input,textarea,select{width:100%;border:1px solid var(--border);border-radius:12px;padding:10px 12px;font:inherit;color:var(--text);background:#fff;outline:none}textarea{min-height:92px;resize:vertical}input:focus,textarea:focus,select:focus{border-color:#93c5fd;box-shadow:0 0 0 3px rgba(147,197,253,.25)}.button-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}button{border:none;border-radius:999px;padding:9px 15px;font:inherit;font-size:.92rem;font-weight:800;cursor:pointer;transition:.2s}button:hover{transform:translateY(-2px)}.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-dark)}.btn-secondary{background:#eef2ff;color:#3730a3}.btn-danger{background:#fee2e2;color:var(--danger)}.btn-muted{background:#f3f4f6;color:#374151}.status{margin-top:12px;color:var(--muted);font-size:.92rem}.status.success{color:var(--success);font-weight:700}.status.error{color:var(--danger);font-weight:700}.hidden{display:none}.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}.tab-btn{background:#fff;border:1px solid var(--border);color:#374151}.tab-btn.active{background:var(--accent);border-color:var(--accent);color:white}.admin-panel{display:none}.admin-panel.active{display:block}.item-list{display:grid;gap:12px}.item{border:1px solid var(--border);border-radius:14px;padding:16px;background:#fff}.item-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.item h3{font-size:1rem;color:#111827}.item p{color:var(--muted);font-size:.92rem;white-space:pre-wrap}.item-meta{margin-top:8px;color:#4b5563;font-size:.85rem}.small-actions{display:flex;flex-wrap:wrap;gap:8px}.small-actions button{padding:6px 10px;font-size:.8rem}.file-result{margin-top:12px;padding:12px;border-radius:12px;background:#f8fafc;border:1px solid var(--border);word-break:break-all;color:#374151;font-size:.9rem}.hint{margin-top:6px;color:var(--muted);font-size:.8rem}.json-field{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;min-height:150px}@media(max-width:760px){body{padding:18px}.header{flex-direction:column}.grid{grid-template-columns:1fr}.full{grid-column:auto}.item-top{flex-direction:column}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><h1>Portfolio Admin</h1><p>Edit every major section of your portfolio and upload files.</p></div>
+      <a href="index.html">Back to Portfolio</a>
+    </header>
+
+    <section id="loginCard" class="card">
+      <h2>Login</h2>
+      <div class="grid">
+        <div><label for="emailInput">Email</label><input id="emailInput" type="email" placeholder="Supabase auth email" /></div>
+        <div><label for="passwordInput">Password</label><input id="passwordInput" type="password" placeholder="Supabase auth password" /></div>
+      </div>
+      <div class="button-row"><button class="btn-primary" onclick="login()">Login</button></div>
+      <p id="loginStatus" class="status"></p>
+    </section>
+
+    <section id="adminArea" class="hidden">
+      <section class="card">
+        <h2>File Upload</h2>
+        <p class="status">Upload PDFs, images, notes, CV files, etc. Copy the generated URL into any link/image field below.</p>
+        <div class="grid">
+          <div><label for="fileInput">Choose file(s)</label><input id="fileInput" type="file" multiple /></div>
+          <div><label for="folderInput">Choose folder</label><input id="folderInput" type="file" multiple webkitdirectory /></div>
+          <div><label for="fileFolderInput">Storage folder</label><input id="fileFolderInput" type="text" value="uploads" /></div>
+        </div>
+        <div class="button-row"><button class="btn-primary" onclick="uploadFile()">Upload File</button></div>
+        <div id="fileResult" class="file-result hidden"></div>
+      </section>
+
+      <nav id="tabs" class="tabs"></nav>
+      <div id="panels"></div>
+      <div class="button-row"><button class="btn-danger" onclick="logout()">Logout</button></div>
+    </section>
+  </div>
+
+  <script>
+    const SUPABASE_URL="https://xjnffjiihgzimayigjwm.supabase.co";
+    const SUPABASE_KEY="sb_publishable_9cImSVVuq-MzbsrAeboIHA_zOmQFl0i";
+    const STORAGE_BUCKET="portfolio-files";
+    let accessToken=localStorage.getItem("portfolio_admin_access_token")||"";
+    let lastUrlInput=null;
+
+    const configs=[
+      {table:"profile",label:"Profile",single:true,fields:[
+        {name:"name",label:"Name",type:"text",required:true},
+        {name:"email",label:"Email",type:"text",required:true},
+        {name:"bio",label:"Bio",type:"textarea"},
+        {name:"image_url",label:"Profile Image URL",type:"url"}
+      ],titleField:"name",subtitleField:"bio"},
+      {table:"social_links",label:"Social Links",fields:[
+        {name:"label",label:"Label",type:"text",required:true},
+        {name:"url",label:"URL",type:"url",required:true},
+        {name:"sort_order",label:"Order",type:"number"}
+      ],titleField:"label",subtitleField:"url"},
+      {table:"skills",label:"Skills / Learning",fields:[
+        {name:"name",label:"Skill Name",type:"text",required:true},
+        {name:"sort_order",label:"Order",type:"number"}
+      ],titleField:"name"},
+      {table:"research_interests",label:"Research Interests",fields:[
+        {name:"name",label:"Interest",type:"text",required:true},
+        {name:"sort_order",label:"Order",type:"number"}
+      ],titleField:"name"},
+      {table:"awards",label:"Awards",fields:[
+        {name:"title",label:"Award Title",type:"text",required:true},
+        {name:"year",label:"Year",type:"text"},
+        {name:"sort_order",label:"Order",type:"number"}
+      ],titleField:"title",subtitleField:"year"},
+      {table:"projects",label:"Projects",fields:[
+        {name:"title",label:"Title",type:"text",required:true},
+        {name:"description",label:"Legacy Description",type:"textarea",required:true,hint:"Kept for old project cards. If short/detailed descriptions are empty, the site falls back to this."},
+        {name:"short_description",label:"Short Description",type:"textarea",hint:"Shown on the compact project card."},
+        {name:"detailed_description",label:"Detailed Description",type:"textarea",hint:"Shown after the project card is expanded."},
+        {name:"category",label:"Category",type:"select",options:["math","ai","programming","data","writing"],required:true},
+        {name:"tags",label:"Tags",type:"text",hint:"Comma-separated, e.g. Python, Supabase, Geometry"},
+        {name:"period",label:"Period",type:"text"},
+        {name:"team",label:"Team",type:"text"},
+        {name:"role",label:"Role",type:"text"},
+        {name:"highlights",label:"Highlights",type:"textarea",hint:"Write one key point per line."},
+        {name:"technical_highlight",label:"Technical Highlight",type:"textarea"},
+        {name:"review",label:"Review / Reflection",type:"textarea"},
+        {name:"links",label:"Links JSON",type:"json",hint:"JSON array format: [{\"label\":\"GitHub\",\"url\":\"https://...\"}]"},
+        {name:"link",label:"Legacy Single Link",type:"url",hint:"Fallback link used only when Links JSON is empty."},
+        {name:"sort_order",label:"Order",type:"number"}
+      ],titleField:"title",subtitleField:"short_description"},
+      {table:"writings",label:"Writing / Articles",fields:[
+        {name:"title",label:"Title",type:"text",required:true},
+        {name:"description",label:"Description",type:"textarea"},
+        {name:"date",label:"Date",type:"text"},
+        {name:"link",label:"Link",type:"url"},
+        {name:"sort_order",label:"Order",type:"number"}
+      ],titleField:"title",subtitleField:"description"},
+      {table:"notes",label:"Publications / Notes",fields:[
+        {name:"title",label:"Title",type:"text",required:true},
+        {name:"type",label:"Type",type:"text"},
+        {name:"description",label:"Description",type:"textarea"},
+        {name:"link",label:"Link",type:"url"},
+        {name:"sort_order",label:"Order",type:"number"}
+      ],titleField:"title",subtitleField:"description"},
+      {table:"archive",label:"Archive",fields:[
+        {name:"title",label:"Title",type:"text",required:true},
+        {name:"description",label:"Description",type:"textarea"},
+        {name:"category",label:"Category",type:"select",options:["certificate","photo","document","slide","poster","other"]},
+        {name:"date",label:"Date",type:"text"},
+        {name:"file_url",label:"File URL",type:"url",hint:"Upload a file above, then fill this field with the generated URL."},
+        {name:"sort_order",label:"Order",type:"number"}
+      ],titleField:"title",subtitleField:"description"},
+      {table:"timeline",label:"Timeline",fields:[
+        {name:"year",label:"Year",type:"text",required:true},
+        {name:"content",label:"Content",type:"textarea",required:true},
+        {name:"sort_order",label:"Order",type:"number"}
+      ],titleField:"year",subtitleField:"content"}
+    ];
+
+    initUI();checkLoginState();
+
+    function initUI(){
+      document.getElementById("tabs").innerHTML=configs.map((c,i)=>`<button class="tab-btn ${i===0?"active":""}" onclick="showTab('${c.table}')">${c.label}</button>`).join("");
+      document.getElementById("panels").innerHTML=configs.map((c,i)=>panelHTML(c,i===0)).join("");
+      document.querySelectorAll("input[data-url-field='true']").forEach(input=>input.addEventListener("focus",()=>lastUrlInput=input));
+    }
+
+    function panelHTML(c,active){
+      return `<section id="panel-${c.table}" class="admin-panel ${active?"active":""}">
+        <section class="card"><h2>${c.label}</h2>
+          <input type="hidden" id="${c.table}-id" />
+          <div class="grid">${c.fields.map(f=>fieldHTML(c.table,f)).join("")}</div>
+          <div class="button-row">
+            <button class="btn-primary" onclick="saveItem('${c.table}')">Save</button>
+            <button class="btn-secondary" onclick="clearForm('${c.table}')">Clear</button>
+            <button class="btn-muted" onclick="loadItems('${c.table}')">Refresh</button>
+          </div>
+          <p id="${c.table}-status" class="status"></p>
+        </section>
+        <section class="card"><h2>Existing ${c.label}</h2><div id="${c.table}-list" class="item-list"><p class="status">Loading...</p></div></section>
+      </section>`;
+    }
+
+    function fieldHTML(table,f){
+      const id=`${table}-${f.name}`;
+      const required=f.required?"required":"";
+      const urlFlag=f.type==="url"||f.type==="json"?"data-url-field='true'":"";
+      const wrapClass=["textarea","json"].includes(f.type)?"full":"";
+      const hint=f.hint?`<p class="hint">${esc(f.hint)}</p>`:"";
+      if(f.type==="textarea") return `<div class="${wrapClass}"><label for="${id}">${f.label}</label><textarea id="${id}" ${required}></textarea>${hint}</div>`;
+      if(f.type==="json") return `<div class="${wrapClass}"><label for="${id}">${f.label}</label><textarea id="${id}" class="json-field" ${urlFlag} placeholder='[{"label":"GitHub","url":"https://..."}]'></textarea>${hint}</div>`;
+      if(f.type==="select") return `<div><label for="${id}">${f.label}</label><select id="${id}" ${required}>${f.options.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>${hint}</div>`;
+      return `<div><label for="${id}">${f.label}</label><input id="${id}" type="${f.type==='number'?'number':'text'}" ${urlFlag} ${required} />${hint}</div>`;
+    }
+
+    function showTab(table){
+      document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+      [...document.querySelectorAll(".tab-btn")].find(b=>b.textContent===configFor(table).label).classList.add("active");
+      document.querySelectorAll(".admin-panel").forEach(p=>p.classList.remove("active"));
+      document.getElementById(`panel-${table}`).classList.add("active");
+      loadItems(table);
+    }
+
+    function configFor(table){return configs.find(c=>c.table===table)}
+
+    function checkLoginState(){
+      if(accessToken){document.getElementById("loginCard").classList.add("hidden");document.getElementById("adminArea").classList.remove("hidden");configs.forEach(c=>loadItems(c.table));}
+      else{document.getElementById("loginCard").classList.remove("hidden");document.getElementById("adminArea").classList.add("hidden");}
+    }
+
+    async function login(){
+      const email=document.getElementById("emailInput").value.trim();
+      const password=document.getElementById("passwordInput").value;
+      const s=document.getElementById("loginStatus");s.textContent="Logging in...";s.className="status";
+      try{const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:"POST",headers:{apikey:SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({email,password})});const j=await r.json();if(!r.ok)throw new Error(j.error_description||j.msg||"Login failed.");accessToken=j.access_token;localStorage.setItem("portfolio_admin_access_token",accessToken);s.textContent="Login successful.";s.className="status success";checkLoginState();}
+      catch(e){s.textContent=e.message;s.className="status error";}
+    }
+
+    function logout(){accessToken="";localStorage.removeItem("portfolio_admin_access_token");checkLoginState()}
+
+    async function uploadFile(){
+      const fileInput=document.getElementById("fileInput");
+      const folderInput=document.getElementById("folderInput");
+      const files=[...fileInput.files,...folderInput.files];
+      const folder=sanitizePath(document.getElementById("fileFolderInput").value||"uploads");
+      const out=document.getElementById("fileResult");
+      out.classList.remove("hidden");
+      out.textContent="Uploading file(s)...";
+      if(!files.length){out.textContent="Please choose file(s) or a folder first.";return}
+
+      const uploaded=[];
+      try{
+        for(let i=0;i<files.length;i++){
+          const file=files[i];
+          const relativePath=file.webkitRelativePath||file.name;
+          const cleanPath=relativePath.split("/").map(sanitizePath).filter(Boolean).join("/");
+          const filePath=`${folder}/${Date.now()}-${i}-${cleanPath}`;
+          const r=await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${filePath}`,{
+            method:"POST",
+            headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${accessToken}`,"Content-Type":file.type||"application/octet-stream","x-upsert":"true"},
+            body:file
+          });
+          const j=await r.json().catch(()=>({}));
+          if(!r.ok)throw new Error(j.message||`File upload failed: ${file.name}`);
+          const publicUrl=`${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${filePath}`;
+          uploaded.push({label:file.name,url:publicUrl});
+        }
+
+        const jsonText=JSON.stringify(uploaded,null,2);
+        const linkList=uploaded.map(x=>`<li><a href="${escAttr(x.url)}" target="_blank">${esc(x.label)}</a></li>`).join("");
+        out.innerHTML=`<strong>Uploaded successfully.</strong>
+          <p class="status">Copy this JSON into the Projects links field, or click Fill selected field after focusing the links textarea.</p>
+          <ul style="margin:10px 0 0 18px">${linkList}</ul>
+          <textarea style="width:100%;min-height:170px;margin-top:12px;border:1px solid var(--border);border-radius:12px;padding:10px">${esc(jsonText)}</textarea>
+          <div class="button-row">
+            <button class="btn-secondary" onclick='copyText(${JSON.stringify(jsonText)})'>Copy JSON</button>
+            <button class="btn-primary" onclick='fillFocusedLinks(${JSON.stringify(jsonText)})'>Fill selected URL / Links field</button>
+          </div>`;
+        if(lastUrlInput)fillFocusedLinks(jsonText);
+      }
+      catch(e){out.textContent=e.message;}
+    }
+
+    async function loadItems(table){
+      const c=configFor(table);const list=document.getElementById(`${table}-list`);if(!list)return;list.innerHTML=`<p class="status">Loading...</p>`;
+      try{const rows=await request(table,"GET");if(!rows.length){list.innerHTML=`<p class="status">No items yet.</p>`;return}list.innerHTML=rows.map(row=>itemHTML(c,row)).join("");}
+      catch(e){list.innerHTML=`<p class="status error">${esc(e.message)}</p>`;}
+    }
+
+    function itemHTML(c,row){
+      const title=row[c.titleField]||`Item ${row.id}`;const sub=c.subtitleField?row[c.subtitleField]:"";
+      const meta=c.fields.map(f=>`<strong>${esc(f.label)}:</strong> ${esc(formatValueForAdmin(row[f.name]))}`).join("<br>");
+      return `<article class="item"><div class="item-top"><div><h3>${esc(title)}</h3><p>${esc(sub||"")}</p></div><div class="small-actions"><button class="btn-secondary" onclick='editItem("${c.table}", ${JSON.stringify(row).replaceAll("'","&#039;")})'>Edit</button>${c.single?"":`<button class="btn-danger" onclick="deleteItem('${c.table}', ${row.id})">Delete</button>`}</div></div><div class="item-meta">${meta}</div></article>`;
+    }
+
+    async function saveItem(table){
+      const c=configFor(table);const status=document.getElementById(`${table}-status`);const id=document.getElementById(`${table}-id`).value;let data={};
+      c.fields.forEach(f=>{let val=document.getElementById(`${table}-${f.name}`).value;if(f.type==="number")val=val===""?0:Number(val);if(f.type==="json")val=parseJsonField(val,f.label);data[f.name]=val});
+      for(const f of c.fields){if(f.required&&!String(data[f.name]||"").trim()){status.textContent=`${f.label} is required.`;status.className="status error";return}}
+      if(data.links instanceof Error){status.textContent=data.links.message;status.className="status error";return}
+      if(c.single)data.id=1;
+      status.textContent="Saving...";status.className="status";
+      try{let url=table,method="POST";if(c.single||id){url=`${table}?id=eq.${c.single?1:id}`;method="PATCH"}let r=await request(url,method,data);if(c.single&&!r.length){await request(table,"POST",data)}status.textContent="Saved successfully.";status.className="status success";clearForm(table);loadItems(table);}
+      catch(e){status.textContent=e.message;status.className="status error";}
+    }
+
+    function editItem(table,row){const c=configFor(table);document.getElementById(`${table}-id`).value=row.id||"";c.fields.forEach(f=>{const el=document.getElementById(`${table}-${f.name}`);let val=row[f.name]??"";if(f.type==="json")val=Array.isArray(val)||typeof val==="object"?JSON.stringify(val||[],null,2):String(val||"");el.value=val});window.scrollTo({top:0,behavior:"smooth"})}
+    function clearForm(table){const c=configFor(table);document.getElementById(`${table}-id`).value="";c.fields.forEach(f=>{document.getElementById(`${table}-${f.name}`).value=f.name==="sort_order"?"0":f.type==="json"?"[]":""})}
+    async function deleteItem(table,id){if(!confirm("Delete this item?"))return;try{await request(`${table}?id=eq.${id}`,"DELETE");loadItems(table)}catch(e){const s=document.getElementById(`${table}-status`);s.textContent=e.message;s.className="status error"}}
+
+    async function request(path,method,body){
+      let headers={apikey:SUPABASE_KEY,Authorization:`Bearer ${method==="GET"?SUPABASE_KEY:accessToken}`,"Content-Type":"application/json"};
+      if(["POST","PATCH"].includes(method))headers.Prefer="return=representation";
+      const r=await fetch(`${SUPABASE_URL}/rest/v1/${path}${path.includes("?")?"&":"?"}select=*&order=sort_order.asc,id.asc`,{method,headers,body:body?JSON.stringify(body):undefined});
+      const text=await r.text();let j=[];try{j=text?JSON.parse(text):[]}catch{j=[]}if(!r.ok)throw new Error(j.message||`Request failed: ${method} ${path}`);return j;
+    }
+
+    function fillFocusedUrl(url){
+      fillFocusedLinks(JSON.stringify([{label:"File",url}]));
+    }
+    function fillFocusedLinks(jsonText){
+      if(!lastUrlInput){alert("Click a URL field, the Archive File URL field, or the Projects Links JSON field first, then press this button again.");return}
+      let newLinks=[];
+      try{newLinks=JSON.parse(jsonText)}catch{newLinks=[]}
+      if(!Array.isArray(newLinks))newLinks=[];
+      if(lastUrlInput.tagName==="TEXTAREA"&&lastUrlInput.id==="projects-links"){
+        const current=lastUrlInput.value.trim();let arr=[];
+        try{arr=current?JSON.parse(current):[]}catch{arr=[]}
+        if(!Array.isArray(arr))arr=[];
+        lastUrlInput.value=JSON.stringify([...arr,...newLinks],null,2);
+      }else if(newLinks[0]){
+        lastUrlInput.value=newLinks[0].url;
+      }
+    }
+    function parseJsonField(value,label){
+      const text=String(value||"").trim();
+      if(!text)return [];
+      try{const parsed=JSON.parse(text);if(!Array.isArray(parsed))return new Error(`${label} must be a JSON array.`);for(const item of parsed){if(!item||typeof item!=="object"||!item.label||!item.url)return new Error(`${label} items must have label and url.`)}return parsed;}
+      catch(e){return new Error(`${label} is not valid JSON.`)}
+    }
+    function formatValueForAdmin(v){if(Array.isArray(v)||typeof v==="object"&&v!==null)return JSON.stringify(v);return v??""}
+    function copyText(text){navigator.clipboard?.writeText(text)}
+    function sanitizePath(v){return String(v).trim().replaceAll(" ","-").replace(/[^a-zA-Z0-9._/-]/g,"").replace(/-+/g,"-")}
+    function esc(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
+    function escAttr(v){return esc(v).replaceAll("`","&#096;")}
+  </script>
+</body>
+</html>
